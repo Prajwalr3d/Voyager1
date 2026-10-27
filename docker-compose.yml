@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL with pgvector extension for relational metadata & dense vectors
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: smartchunk-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smartchunk
+      POSTGRES_USER: smartchunk
+      POSTGRES_PASSWORD: smartchunk_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartchunk -d smartchunk"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. Qdrant Vector Database for high-scale HNSW cosine search
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: smartchunk-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  # 3. SmartChunk Frontend (Vite + React 18 + Tailwind)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smartchunk-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+      - VITE_DEFAULT_DEMO_MODE=false
+    depends_on:
+      - postgres
+      - qdrant
+
+volumes:
+  postgres_data:
+  qdrant_data:
+

@@ -1,0 +1,166 @@
+<USER_REQUEST>
+# SmartChunk — Advanced Feature Integration Specification
+
+## Role
+
+Act as a senior AI/ML engineer, RAG architect, backend engineer, and evaluation specialist. Extend my existing SmartChunk project with five advanced capabilities while preserving its current functionality and architecture wherever practical.
+
+## Critical instructions
+
+Before writing code:
+
+1. Inspect the entire existing codebase.
+2. Identify the actual frontend, backend, database, embedding model, LLM, chunking algorithm, retrieval pipeline, and document ingestion process.
+3. Identify which existing features are functional, incomplete, or mocked.
+4. Map the files, APIs, database tables or collections, and services affected by each proposed feature.
+5. Identify dependencies among the five features and propose a phased implementation plan.
+6. Report architectural conflicts, migration requirements, performance risks, and missing information.
+
+Do not replace the existing project with a new application. Do not assume any technology that you have not verified. Do not expose secrets or introduce fake evaluation results.
+
+After the audit, implement the features in the following phases, completing and testing one phase before proceeding to the next.
+
+## FEATURE 1: Version-Aware Evidence
+
+Implement reliable document version tracking and evidence provenance.
+
+Requirements:
+- Assign stable document identifiers and unique version identifiers.
+- Preserve the original document version and its metadata.
+- Detect document updates and associate each ingestion run with the appropriate version.
+- Track which document version and chunk IDs support each generated answer.
+- Allow users to compare evidence across document versions.
+- Identify added, modified, and removed content where feasible.
+- Prevent accidental mixing of incompatible document versions in retrieval.
+- Make the active-version policy explicit and allow historical evidence to be inspected.
+- Preserve citation traceability from answer to chunk, source location, and document version.
+- Handle re-uploads, duplicate uploads, failed ingestion, and rollback safely.
+
+Acceptance criteria:
+A user can inspect an answer's source version, update a document, and verify which evidence belongs to the old and new versions.
+
+## FEATURE 2: Context Dependency Graph
+
+Implement a graph representing meaningful relationships among document chunks and structural elements.
+
+Requirements:
+- Create graph nodes for chunks and, where appropriate, sections, tables, definitions, and references.
+- Support justified edge types such as parent-child, previous-next, references-to, defines, and depends-on.
+- Store stable node IDs and provenance metadata.
+- Construct edges using document structure and explicit references first.
+- Use semantic similarity only where appropriate; similarity alone must not imply a true dependency.
+- During retrieval, optionally expand the initial results with relevant dependent chunks.
+- Rank dependency candidates and enforce a configurable context-token budget.
+- Avoid cycles, duplicate evidence, irrelevant expansions, and cross-version contamination.
+- Provide an inspectable visualization showing nodes, relationships, and retrieved evidence.
+- Handle missing references and unsupported document structures gracefully.
+
+Acceptance criteria:
+Given a query about a section that depends on another section, the system can retrieve the necessary supporting context and explain why it was included.
+
+## FEATURE 3: Built-In Comparative Benchmark
+
+Implement an actual experimental framework for comparing chunking and retrieval configurations.
+
+Requirements:
+- Support the existing SmartChunk strategy and applicable baseline strategies.
+- Include fixed-size chunking and structure-aware chunking where compatible with the current architecture.
+- Allow configurable chunk size, overlap, retrieval top-k, and other supported parameters.
+- Use the same document corpus, test questions, evaluation criteria, and relevant model settings for fair comparisons.
+- Separate indexing time, retrieval time, generation time, and total latency.
+- Report retrieval metrics such as Recall@k, Precision@k, and MRR when suitable ground-truth relevance labels are available.
+- Evaluate answer quality using supported metrics such as faithfulness, answer relevance, and citation correctness.
+- Report token usage and estimated cost when the required data is available.
+- Store experiment configurations, timestamps, dataset identifiers, and results.
+- Present comparisons through tables and charts.
+- Clearly distinguish measured results, estimates, and unavailable metrics.
+- Do not generate synthetic scores or claim improvements without experimental evidence.
+
+Acceptance criteria:
+A user can run two or more configurations on the same evaluation dataset and inspect reproducible, comparable results.
+
+## FEATURE 4: Structure-Aware Document Benchmark
+
+Build an evaluation module that measures how chunking handles different document structures.
+
+Requirements:
+- Identify supported structural elements such as headings, paragraphs, tables, lists, code blocks, and nested sections.
+- Preserve source locations and structural metadata during parsing and chunking.
+- Create evaluation subsets based on document structure and question type.
+- Evaluate whether chunks preserve complete table headers, row relationships, list items, definitions, and section context.
+- Include test cases for cross-section references and questions requiring information from multiple passages.
+- Measure retrieval quality, evidence completeness, citation accuracy, and answer quality where suitable.
+- Compare structure-aware chunking against applicable baseline methods.
+- Report failures separately by structural category.
+- Clearly identify unsupported file formats and structures.
+- Avoid assuming that structure-aware chunking is always superior; use benchmark results to determine where it helps.
+
+Acceptance criteria:
+The dashboard shows how each supported chunking strategy performs across different document structures using a consistent evaluation dataset.
+
+## FEATURE 5: Deduplication and Before/After Evaluation
+
+Implement duplicate detection and a controlled evaluation of its impact.
+
+Requirements:
+- Detect exact duplicates using content normalization and hashing.
+- Support configurable near-duplicate detection using an appropriate similarity method.
+- Distinguish exact duplicates from semantically similar but meaningfully different passages.
+- Preserve source-document provenance, document versions, and original chunk mappings.
+- Avoid irreversible deletion of source documents or evidence.
+- Allow deduplication to be enabled or disabled during evaluation.
+- Compare retrieval and answer quality before and after deduplication using the same test queries and evaluation settings.
+- Report duplicate count, unique chunk count, storage or index-size changes, redundant retrieval rate, latency, and token usage where measurable.
+- Measure retrieval recall, answer faithfulness, and citation correctness to detect information loss.
+- Make deduplication configurable and reversible at the indexing or retrieval layer.
+- Keep separate sources available as provenance even when their content is consolidated for retrieval.
+
+Acceptance criteria:
+The user can compare the original and deduplicated configurations and determine whether deduplication reduces redundancy without harming answer quality or evidence coverage.
+
+## SHARED ARCHITECTURE AND QUALITY REQUIREMENTS
+
+- Integrate all five features with the existing document ingestion, chunking, embedding, retrieval, and answer-generation pipeline.
+- Reuse existing technologies and dependencies when suitable.
+- Add database migrations or schema changes only where required.
+- Preserve backward compatibility with existing documents and functionality.
+- Use stable identifiers and explicit metadata schemas.
+- Implement error handling, input validation, logging, and appropriate access controls.
+- Avoid leaking private document content, API keys, or sensitive metadata.
+- Prevent stale indexes and outdated graph edges after document updates.
+- Make evaluation runs reproducible and isolate experimental configurations.
+- Respect model context-window limits and reserve tokens for instructions and generated answers.
+- Add automated tests for normal cases, edge cases, version changes, duplicate content, and failed ingestion.
+- Do not claim a performance improvement until it has been measured against a suitable baseline.
+
+## USER INTERFACE
+
+Integrate the capabilities into the existing UI without redesigning unrelated screens.
+
+Provide appropriate interfaces for:
+1. Document versions and evidence history.
+2. Context dependency graph and evidence inspection.
+3. Comparative benchmark results.
+4. Structure-specific evaluation results.
+5. Deduplication controls and before/after evaluation.
+
+Reuse the current design system and components. Add loading, empty, error, and success states. Ensure all controls are connected to real backend functionality.
+
+## IMPLEMENTATION AND REPORTING PROCESS
+
+For each phase:
+
+1. Explain the implementation plan and affected files.
+2. Implement the smallest coherent set of changes.
+3. Run relevant automated tests and existing regression tests.
+4. Verify integration with the actual document-processing and RAG pipeline.
+5. Report completed work, incomplete work, test results, and known limitations.
+6. Explain how to use and verify the feature manually.
+
+Do not implement all five features in one uncontrolled code change. Start with the codebase audit, then implement Phase 1 after the architecture and dependencies are understood.
+
+Final objective: deliver a functional, testable, reproducible SmartChunk system whose advanced features are backed by actual implementation and measurable evidence rather than UI claims.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-10-27T21:24:34+05:30.
+</ADDITIONAL_METADATA>
