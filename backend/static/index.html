@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartChunk | Evidence-Aware Scientific RAG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <div class="logo-icon">🔬</div>
+        <div>
+          <h1>SmartChunk</h1>
+          <p class="tagline">Evidence-Aware Scientific RAG with Cryptographic Provenance</p>
+        </div>
+      </div>
+      <div class="system-status">
+        <span class="status-indicator"></span>
+        <span id="backendStatus">Connecting...</span>
+      </div>
+    </header>
+
+    <div class="main-layout">
+      <!-- Left Column: Ingestion & Quality Gate -->
+      <aside class="sidebar">
+        <section class="card">
+          <h2>1. Ingest Scientific PDF</h2>
+          <p class="section-desc">Extracts canonical text, computes SHA-256 source hash, and verifies chunks against the Quality Gate.</p>
+
+          <div class="drop-zone" id="dropZone">
+            <input type="file" id="fileInput" accept="application/pdf" hidden>
+            <div class="drop-zone-content" id="dropZonePrompt">
+              <span class="upload-icon">📄</span>
+              <p>Drag & drop scientific PDF here, or <button type="button" class="btn-link" onclick="document.getElementById('fileInput').click()">browse</button></p>
+              <span class="file-hint">Standard PDF documents supported</span>
+            </div>
+            <div id="fileSelectedInfo" class="file-selected hidden">
+              <span id="selectedFileName">filename.pdf</span>
+              <button type="button" class="btn-remove" id="btnRemoveFile">✕</button>
+            </div>
+          </div>
+
+          <button id="btnUpload" class="btn btn-primary" disabled>
+            <span>Upload & Index with Quality Gate</span>
+          </button>
+
+          <!-- Quality Gate Report Container -->
+          <div id="qualityReportCard" class="quality-report-card hidden">
+            <h3>Quality Gate Audit</h3>
+            <div class="stats-grid">
+              <div class="stat-box stat-pass">
+                <span class="stat-label">Passed</span>
+                <span class="stat-value" id="statPassed">0</span>
+              </div>
+              <div class="stat-box stat-repair">
+                <span class="stat-label">Repaired</span>
+                <span class="stat-value" id="statRepaired">0</span>
+              </div>
+              <div class="stat-box stat-review">
+                <span class="stat-label">Reviewed</span>
+                <span class="stat-value" id="statReviewed">0</span>
+              </div>
+              <div class="stat-box stat-reject">
+                <span class="stat-label">Rejected</span>
+                <span class="stat-value" id="statRejected">0</span>
+              </div>
+            </div>
+
+            <div class="provenance-banner">
+              <span class="provenance-title">Source Cryptographic Provenance:</span>
+              <code class="hash-badge" id="sourceHash">SHA-256 Pending</code>
+            </div>
+          </div>
+        </section>
+
+        <!-- Indexed Documents List -->
+        <section class="card">
+          <h2>Indexed Corpus</h2>
+          <div id="documentsList" class="documents-list">
+            <p class="empty-state">No documents indexed yet.</p>
+          </div>
+        </section>
+      </aside>
+
+      <!-- Right Column: Grounded Q&A and Evidence Lab -->
+      <main class="content">
+        <!-- Question Formulation -->
+        <section class="card">
+          <h2>2. Ask a Grounded Question</h2>
+          <p class="section-desc">Queries are resolved via Reciprocal Rank Fusion (FTS5 + MiniLM Vectors) and answered strictly by Gemini from evidence.</p>
+
+          <form id="qaForm" class="qa-form">
+            <div class="input-group">
+              <input 
+                type="text" 
+                id="queryInput" 
+                placeholder="e.g., What are the key architectural improvements introduced in the transformer?" 
+                required
+              />
+              <button type="submit" id="btnAsk" class="btn btn-accent">
+                <span>Ask Gemini</span>
+              </button>
+            </div>
+            <div class="form-controls">
+              <label for="topKSelect">Evidence Depth (top-k):</label>
+              <select id="topKSelect">
+                <option value="3">3 Chunks</option>
+                <option value="5" selected>5 Chunks (Recommended)</option>
+                <option value="8">8 Chunks</option>
+              </select>
+            </div>
+          </form>
+        </section>
+
+        <!-- Loading Spinner -->
+        <div id="loadingIndicator" class="loading-container hidden">
+          <div class="spinner"></div>
+          <p id="loadingMessage">Evaluating hybrid retrieval across SQLite FTS5 & Vectors...</p>
+        </div>
+
+        <!-- Grounded Answer Card -->
+        <section id="answerCard" class="card answer-card hidden">
+          <div class="card-header">
+            <h2>Grounded Answer</h2>
+            <div class="verified-tag" id="provenanceVerifiedTag">
+              <span>🔒 Cryptographically Grounded</span>
+            </div>
+          </div>
+
+          <div id="answerContent" class="answer-content">
+            <!-- Answer Markdown inserted here -->
+          </div>
+
+          <div class="model-info">
+            <span>Model: <code id="modelBadge">gemini-1.5-flash</code></span>
+            <span>Temperature: <code>0.1 (Strict Truthfulness)</code></span>
+          </div>
+        </section>
+
+        <!-- Evidence Inspection Lab -->
+        <section id="evidenceSection" class="card hidden">
+          <div class="card-header">
+            <h2>Evidence Inspection Lab</h2>
+            <span class="evidence-count" id="evidenceCount">0 Evidence Chunks</span>
+          </div>
+          <p class="section-desc">Inspect exact chunks injected into the context window, their source pages, cryptographic hashes, and RRF rank scores.</p>
+
+          <div id="evidenceGrid" class="evidence-grid">
+            <!-- Evidence cards mapped dynamically -->
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+
