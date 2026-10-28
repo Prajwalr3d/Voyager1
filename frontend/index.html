@@ -1,0 +1,3591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartChunk — Scientific Document Intelligence</title>
+<meta name="description" content="SmartChunk ingests research papers, creates quality-checked chunks, retrieves relevant evidence, and produces grounded answers for scientific research workflows.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ─── Design Tokens ──────────────────────────────────────────────────────── */
+:root {
+  /* Surface - warm off-white */
+  --bg-page:        #F8F6F2;
+  --bg-surface:     #FFFFFF;
+  --bg-elevated:    #F4F0EA;
+  --bg-subtle:      #EEE9E0;
+
+  /* Borders */
+  --border-subtle:  #DED8D0;
+  --border-medium:  #CFC8BE;
+  --border-strong:  #B8B0A7;
+
+  /* Text - charcoal primary */
+  --text-primary:   #202832;
+  --text-secondary: #5F6B76;
+  --text-tertiary:  #7A8693;
+  --text-link:      #223D67;
+
+  /* Brand / Accent - restrained navy */
+  --accent:         #223D67;
+  --accent-hover:   #183355;
+  --accent-soft:    #E8EEF8;
+  --accent-faint:   #F2F6FB;
+
+  /* Status - soft pastel backgrounds */
+  --pass-bg:      #EDF6F1; --pass-text:   #2E5A47; --pass-border:  #B9D9C6;
+  --repair-bg:    #FDF6E8; --repair-text: #8A5B1C; --repair-border:#E7CE88;
+  --review-bg:    #FDF0E7; --review-text: #9B4F2B; --review-border:#E9C6A8;
+  --reject-bg:    #FBEDED; --reject-text: #8F2F2F; --reject-border:#E8B9B9;
+
+  /* Feedback - light theme */
+  --success-bg:   #EEF8F2; --success-text: #2D5F46; --success-border: #C0E0CC;
+  --error-bg:     #FBECEC; --error-text:   #8E2F2F; --error-border:   #E9B8B8;
+  --info-bg:      #EEF4FB; --info-text:    #24476F; --info-border:    #C0D3EA;
+  --warn-bg:      #FBF6EA; --warn-text:    #8C601D; --warn-border:    #E9D2A2;
+
+  /* Typography */
+  --font-sans:  'Inter', 'Segoe UI', sans-serif;
+  --font-mono:  'JetBrains Mono', 'SFMono-Regular', 'Consolas', monospace;
+
+  /* Sizing - modest corner radii */
+  --radius-sm:  4px;
+  --radius:     8px;
+  --radius-md:  12px;
+  --radius-pill: 9999px;
+
+  /* Shadows - minimal */
+  --shadow-card:    0 1px 0 rgba(14, 28, 40, 0.04), 0 10px 24px rgba(17, 27, 40, 0.04);
+  --shadow-focus:   0 0 0 3px rgba(34, 61, 103, 0.15);
+
+  /* Transitions */
+  --transition: 180ms ease;
+}
+
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background:
+    radial-gradient(circle at top right, rgba(34, 61, 103, 0.04), transparent 28%),
+    linear-gradient(180deg, #F9F7F3 0%, var(--bg-page) 100%);
+  min-height: 100vh;
+}
+
+a { color: var(--text-link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ─── App Header ─────────────────────────────────────────────────────────── */
+.app-header {
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.header-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.brand-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(180deg, var(--accent) 0%, #1A3050 100%);
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.brand-icon svg { color: #fff; }
+
+.brand-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+}
+
+.brand-name span {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: rgba(255,255,255,0.8);
+  box-shadow: 0 1px 0 rgba(17, 27, 40, 0.02);
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--error-border);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(142, 47, 47, 0.08);
+}
+
+.status-dot.online { background: var(--pass-text); box-shadow: 0 0 0 3px rgba(46, 95, 70, 0.1); }
+
+/* ─── Navigation ─────────────────────────────────────────────────────────── */
+.app-nav {
+  background: rgba(255,255,255,0.72);
+  border-bottom: 1px solid var(--border-subtle);
+  backdrop-filter: blur(8px);
+}
+
+.nav-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+}
+
+.nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 11px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition), background var(--transition), box-shadow var(--transition);
+  white-space: nowrap;
+  position: relative;
+}
+
+.nav-tab:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: rgba(34, 61, 103, 0.03);
+}
+
+.nav-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: rgba(34, 61, 103, 0.02);
+}
+
+.nav-tab.active svg { opacity: 1; }
+
+/* ─── Main Layout ────────────────────────────────────────────────────────── */
+.app-main {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 24px 64px;
+}
+
+/* Sections */
+section { display: none; }
+section.active { display: block; animation: fadeUp 0.18s ease; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Page Title Block ───────────────────────────────────────────────────── */
+.page-title {
+  margin-bottom: 22px;
+  padding-top: 4px;
+}
+
+.page-title h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.04em;
+  margin-bottom: 6px;
+}
+
+.page-title p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  max-width: 760px;
+}
+
+/* ─── Cards ──────────────────────────────────────────────────────────────── */
+.card {
+  background: rgba(255,255,255,0.96);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-card);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-title svg { opacity: 0.4; }
+
+/* ─── Form Elements ──────────────────────────────────────────────────────── */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group:last-child { margin-bottom: 0; }
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.label-hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  margin-left: 4px;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="email"],
+select,
+textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238A8782' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 32px;
+  cursor: pointer;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.55;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
+}
+
+input::placeholder,
+textarea::placeholder { color: var(--text-tertiary); }
+
+input[type="file"] {
+  display: none;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-row-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+.form-full { grid-column: 1 / -1; }
+
+/* Checkbox */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ─── Buttons ────────────────────────────────────────────────────────────── */
+button {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background var(--transition), box-shadow var(--transition), opacity var(--transition), transform var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  padding: 9px 18px;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+.btn-primary:active:not(:disabled) { transform: translateY(0); }
+
+.btn-secondary {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 14px;
+  padding: 9px 18px;
+  border: 1px solid var(--border-medium);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--bg-elevated); }
+
+.btn-danger {
+  background: #DC2626;
+  color: #fff;
+  font-size: 13px;
+  padding: 7px 14px;
+}
+.btn-danger:hover:not(:disabled) { background: #B91C1C; }
+
+.btn-sm {
+  font-size: 12px;
+  padding: 5px 12px;
+}
+
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-danger:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+/* Loading spinner for buttons */
+.btn-spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Upload Zone ────────────────────────────────────────────────────────── */
+.upload-zone {
+  border: 2px dashed var(--border-medium);
+  border-radius: var(--radius-md);
+  padding: 42px 28px;
+  text-align: center;
+  background: linear-gradient(180deg, var(--bg-elevated) 0%, rgba(255,255,255,0.8) 100%);
+  transition: border-color var(--transition), background var(--transition), box-shadow var(--transition), transform var(--transition);
+  cursor: pointer;
+  position: relative;
+}
+
+.upload-zone:hover,
+.upload-zone.dragover {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, rgba(34,61,103,0.03) 0%, rgba(255,255,255,0.8) 100%);
+  box-shadow: 0 6px 18px rgba(34,61,103,0.06);
+}
+
+.upload-zone.file-selected {
+  border-color: var(--border-medium);
+  background: linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(244,240,234,0.8) 100%);
+}
+
+.upload-icon {
+  margin: 0 auto 16px;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  box-shadow: 0 10px 20px rgba(17, 27, 40, 0.04);
+}
+
+.upload-zone p {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.upload-zone p strong {
+  color: var(--text-primary);
+}
+
+.upload-zone small {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  display: block;
+  margin-top: 6px;
+}
+
+.upload-zone .file-selected-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* ─── Progress / Indeterminate ───────────────────────────────────────────── */
+.progress {
+  width: 100%;
+  height: 3px;
+  background: var(--border-subtle);
+  border-radius: 99px;
+  margin: 16px 0 4px;
+  overflow: hidden;
+  display: none;
+  position: relative;
+}
+
+.progress.indeterminate .progress-bar {
+  width: 40%;
+  animation: indeterminate 1.2s ease-in-out infinite;
+}
+
+@keyframes indeterminate {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--accent);
+  width: 0%;
+  transition: width 0.3s ease;
+  border-radius: 99px;
+}
+
+/* ─── Feedback States ────────────────────────────────────────────────────── */
+.alert {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  line-height: 1.55;
+  margin-top: 16px;
+  border: 1px solid;
+}
+
+.alert-success {
+  background: var(--success-bg);
+  color: var(--success-text);
+  border-color: var(--success-border);
+}
+
+.alert-error {
+  background: var(--error-bg);
+  color: var(--error-text);
+  border-color: var(--error-border);
+}
+
+.alert-info {
+  background: var(--info-bg);
+  color: var(--info-text);
+  border-color: var(--info-border);
+}
+
+.alert-warn {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border-color: var(--warn-border);
+}
+
+.alert strong { font-weight: 600; }
+
+/* Keep legacy class names working (used by JS innerHTML) */
+.success { padding: 12px 16px; border-radius: var(--radius); font-size: 13px; line-height: 1.55; margin-top: 16px; border: 1px solid var(--success-border); background: var(--success-bg); color: var(--success-text); }
+.error   { padding: 12px 16px; border-radius: var(--radius); font-size: 13px; line-height: 1.55; margin-top: 16px; border: 1px solid var(--error-border); background: var(--error-bg); color: var(--error-text); }
+
+/* ─── Empty State ────────────────────────────────────────────────────────── */
+.empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+
+.empty-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+}
+
+.empty h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+/* ─── Badges ─────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  border: 1px solid transparent;
+}
+
+.badge-pass   { background: var(--pass-bg);   color: var(--pass-text);   border-color: var(--pass-border); }
+.badge-repair { background: var(--repair-bg); color: var(--repair-text); border-color: var(--repair-border); }
+.badge-review { background: var(--review-bg); color: var(--review-text); border-color: var(--review-border); }
+.badge-reject { background: var(--reject-bg); color: var(--reject-text); border-color: var(--reject-border); }
+
+.badge-mode {
+  background: var(--info-bg);
+  color: var(--info-text);
+  border-color: var(--info-border);
+}
+
+.badge-graph {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: rgba(30,58,95,0.25);
+}
+
+.badge-neutral {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  border-color: var(--border-medium);
+}
+
+/* ─── Score Pill ─────────────────────────────────────────────────────────── */
+.score-pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-light);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(30,58,95,0.15);
+  flex-shrink: 0;
+}
+
+/* ─── Result Cards ───────────────────────────────────────────────────────── */
+.result-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 10px;
+  background: var(--bg-surface);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.result-card:hover {
+  border-color: var(--border-medium);
+  box-shadow: var(--shadow-card);
+}
+
+.result-card.graph-expanded {
+  border-left: 3px solid var(--accent);
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.result-doc {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 2px;
+  word-break: break-all;
+}
+
+.result-chunk {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.result-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  margin-bottom: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.result-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.result-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* ─── Search Summary Bar ─────────────────────────────────────────────────── */
+.search-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.search-summary strong { color: var(--text-primary); font-weight: 600; }
+
+/* ─── Search Workspace ───────────────────────────────────────────────────── */
+.search-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.search-form .form-group:first-child {
+  grid-column: 1 / -1;
+}
+
+.search-form .form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.search-form .btn-primary {
+  padding: 10px 20px;
+  font-size: 14px;
+}
+
+.search-form .btn-secondary {
+  padding: 10px 20px;
+  font-size: 14px;
+}
+
+.search-controls-hint {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  line-height: 1.45;
+}
+
+/* ─── Search Results List ────────────────────────────────────────────────── */
+.search-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.search-result {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  background: var(--bg-surface);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.search-result:hover {
+  border-color: var(--border-medium);
+  box-shadow: var(--shadow-card);
+}
+
+.search-result.graph-expanded {
+  border-left: 3px solid var(--accent);
+}
+
+.search-result-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.search-result-rank {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  background: var(--bg-elevated);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.search-result-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.search-result-doc {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  word-break: break-word;
+}
+
+.search-result-chunk {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.search-result-score {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-light);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(30,58,95,0.15);
+  flex-shrink: 0;
+}
+
+.search-result-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 2px;
+}
+
+.search-result-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+}
+
+.search-result-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.search-result-meta-item .sep {
+  color: var(--border-medium);
+}
+
+/* ─── Evidence Detail Panel ─────────────────────────────────────────────── */
+.evidence-detail {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  background: var(--bg-elevated);
+  margin-top: 8px;
+  animation: fadeUp 0.15s ease;
+}
+
+.evidence-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.evidence-detail-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.evidence-detail-body {
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 10px;
+}
+
+.evidence-detail-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.evidence-detail-meta-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.evidence-detail-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+}
+
+.evidence-detail-meta-key {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+.evidence-detail-meta-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-primary);
+  word-break: break-all;
+  overflow-wrap: break-word;
+}
+
+/* Evidence toggle button */
+.evidence-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius);
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all var(--transition);
+}
+
+.evidence-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.evidence-toggle svg {
+  transition: transform var(--transition);
+}
+
+.evidence-toggle.open svg {
+  transform: rotate(180deg);
+}
+
+.evidence-toggle.expanded {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.evidence-toggle.expanded svg {
+  transform: rotate(180deg);
+}
+
+/* ─── New Search Bar ────────────────────────────────────────────────────── */
+.new-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.new-search-bar strong {
+  color: var(--text-primary);
+}
+
+/* ─── Retrieval Status Notice ───────────────────────────────────────────── */
+.retrieval-status-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--warn-text);
+  margin-bottom: 16px;
+}
+
+.retrieval-status-notice svg { flex-shrink: 0; color: #D97706; }
+
+/* ─── Loading State ─────────────────────────────────────────────────────── */
+.search-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.search-loading .btn-spinner {
+  border-color: rgba(30,58,95,0.2);
+  border-top-color: var(--accent);
+}
+
+/* ─── No Results ────────────────────────────────────────────────────────── */
+.search-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-tertiary);
+}
+
+/* ─── Chat / Q&A ─────────────────────────────────────────────────────────── */
+.chat-message {
+  margin-bottom: 12px;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid;
+}
+
+.chat-assistant {
+  background: var(--bg-surface);
+  border-color: var(--border-subtle);
+  border-left: 3px solid var(--accent);
+}
+
+.chat-abstain {
+  background: var(--warn-bg);
+  border-color: var(--warn-border);
+  border-left: 3px solid #D97706;
+}
+
+.chat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.chat-answer {
+  font-size: 15px;
+  color: var(--text-primary);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-meta {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.chat-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chat-meta-item .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-true  { background: #34D399; }
+.dot-false { background: var(--border-strong); }
+
+/* Citations */
+.citations-section {
+  margin-top: 16px;
+}
+
+.citations-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin-bottom: 10px;
+}
+
+.citation {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.cite-number {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-light);
+  border: 1px solid rgba(30,58,95,0.15);
+  border-radius: var(--radius-sm);
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cite-body { flex: 1; min-width: 0; }
+
+.cite-doc {
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 2px;
+  word-break: break-all;
+}
+
+.cite-chunk {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* ─── Agent Status ───────────────────────────────────────────────────────── */
+.agent-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.agent-completed { background: var(--pass-bg);   color: var(--pass-text);   border: 1px solid var(--pass-border); }
+.agent-failed    { background: var(--reject-bg);  color: var(--reject-text); border: 1px solid var(--reject-border); }
+.agent-running   { background: var(--info-bg);    color: var(--info-text);   border: 1px solid var(--info-border); }
+
+/* ─── Ingest Result Panel ────────────────────────────────────────────────── */
+.ingest-result-panel {
+  margin-top: 20px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  animation: fadeUp 0.2s ease;
+  background: var(--bg-surface);
+}
+
+.ingest-result-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  background: var(--success-bg);
+  border-bottom: 1px solid var(--success-border);
+}
+
+.ingest-result-header svg { color: var(--success-text); flex-shrink: 0; }
+
+.ingest-result-header h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--success-text);
+}
+
+.ingest-result-body {
+  padding: 20px;
+  background: var(--bg-surface);
+}
+
+.ingest-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ingest-stat {
+  text-align: center;
+  padding: 14px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+}
+
+.ingest-stat .stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ingest-stat .stat-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+.ingest-detail-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ingest-detail-row:last-child { border-bottom: none; }
+
+.ingest-detail-key {
+  font-weight: 500;
+  color: var(--text-secondary);
+  min-width: 110px;
+  flex-shrink: 0;
+}
+
+.ingest-detail-value {
+  color: var(--text-primary);
+  word-break: break-all;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* Quality status summary inside ingest result */
+.ingest-quality-summary {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ingest-quality-summary .quality-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  display: block;
+}
+
+/* Quality badges row */
+.quality-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.quality-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.quality-badge .qb-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.quality-badge-pass   { background: var(--pass-bg);   color: var(--pass-text);   border-color: var(--pass-border); }
+.quality-badge-repair { background: var(--repair-bg); color: var(--repair-text); border-color: var(--repair-border); }
+.quality-badge-review { background: var(--review-bg); color: var(--review-text); border-color: var(--review-border); }
+.quality-badge-reject { background: var(--reject-bg); color: var(--reject-text); border-color: var(--reject-border); }
+
+/* Diagnostics collapsible */
+.diagnostics-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 8px 0 4px;
+  font-family: var(--font-sans);
+}
+
+.diagnostics-toggle:hover { color: var(--accent); }
+
+.diagnostics-toggle svg {
+  transition: transform var(--transition);
+}
+
+.diagnostics-toggle.open svg {
+  transform: rotate(90deg);
+}
+
+.diagnostics-list {
+  display: none;
+  margin-top: 8px;
+}
+
+.diagnostics-list.show {
+  display: block;
+  animation: fadeUp 0.15s ease;
+}
+
+.diagnostic-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.diagnostic-severity {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.sev-error   { background: var(--reject-bg); color: var(--reject-text); }
+.sev-warning { background: var(--review-bg); color: var(--review-text); }
+.sev-info    { background: var(--info-bg);   color: var(--info-text); }
+
+.diagnostic-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.diagnostic-code {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.diagnostic-explanation {
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.diagnostic-action {
+  font-style: italic;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+/* ─── Document Cards ─────────────────────────────────────────────────────── */
+.doc-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 20px 22px;
+  margin-bottom: 14px;
+  background: var(--bg-surface);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.doc-card:hover {
+  border-color: var(--border-medium);
+  box-shadow: var(--shadow-card);
+}
+
+.doc-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 0;
+}
+
+.doc-card-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.doc-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-word;
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+
+.doc-card-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 0;
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-card-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.doc-card-stat {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.doc-card-stat strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.doc-card-sha {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  padding: 3px 8px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  cursor: help;
+  white-space: nowrap;
+}
+
+.doc-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Document card status row */
+.doc-card-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+/* Strategy hint */
+.strategy-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  display: block;
+  line-height: 1.4;
+}
+
+/* ─── Eval Metrics ───────────────────────────────────────────────────────── */
+.eval-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.eval-metric {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  text-align: center;
+}
+
+.eval-metric .value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.eval-metric .metric-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
+
+/* ─── Evaluation ─────────────────────────────────────────────────────────── */
+.eval-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.eval-form .form-group:first-child {
+  grid-column: 1 / -1;
+}
+
+.eval-form .form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.eval-form .btn-primary {
+  padding: 10px 20px;
+  font-size: 14px;
+}
+
+.eval-form .btn-secondary {
+  padding: 10px 20px;
+  font-size: 14px;
+}
+
+.eval-helper {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  line-height: 1.45;
+}
+
+.eval-description {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-bottom: 16px;
+}
+
+.eval-benchmark-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--info-text);
+  margin-bottom: 16px;
+}
+
+.eval-benchmark-notice svg { flex-shrink: 0; margin-top: 1px; }
+
+.eval-benchmark-notice strong {
+  color: var(--text-primary);
+}
+
+.eval-result-panel {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  background: var(--bg-surface);
+  margin-top: 20px;
+  animation: fadeUp 0.2s ease;
+}
+
+.eval-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.eval-result-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.eval-result-status {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.eval-result-status.completed { color: var(--pass-text); }
+.eval-result-status.failed    { color: var(--reject-text); }
+
+.eval-metric-description {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.eval-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  word-break: break-all;
+}
+
+.eval-missing, .eval-invalid, .eval-failed {
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid;
+}
+
+.eval-missing {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border-color: var(--warn-border);
+}
+
+.eval-invalid {
+  background: var(--review-bg);
+  color: var(--review-text);
+  border-color: var(--review-border);
+}
+
+.eval-failed {
+  background: var(--error-bg);
+  color: var(--error-text);
+  border-color: var(--error-border);
+}
+
+.eval-missing strong, .eval-invalid strong, .eval-failed strong {
+  font-weight: 600;
+}
+
+/* ─── Documents Table (legacy, kept for compatibility) ───────────────────── */
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.doc-id {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sha-cell {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* ─── Session Notice ─────────────────────────────────────────────────────── */
+.session-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--info-text);
+  margin-bottom: 20px;
+}
+
+.session-notice svg { flex-shrink: 0; margin-top: 1px; }
+
+/* ─── Retrieval meta ─────────────────────────────────────────────────────── */
+.retrieval-detail {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+
+/* ─── Separator ──────────────────────────────────────────────────────────── */
+.section-sep {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 24px 0;
+}
+
+/* ─── Skeleton ───────────────────────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-subtle) 25%, var(--border-subtle) 50%, var(--bg-subtle) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: var(--radius);
+  height: 14px;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Toast ──────────────────────────────────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: var(--shadow-card);
+  transform: translateY(120px);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 100;
+  max-width: 360px;
+  line-height: 1.45;
+}
+
+#toast[role="alert"].show  { transform: translateY(0); }
+#toast.show   { transform: translateY(0); }
+#toast.error  { background: var(--error-bg); color: var(--error-text); border: 1px solid var(--error-border); }
+#toast.error::before  { content: '✕  '; color: var(--error-text); }
+#toast.success { background: var(--success-bg); color: var(--success-text); border: 1px solid var(--success-border); }
+#toast.success::before { content: '✓  '; color: var(--success-text); }
+#toast.info   { background: var(--info-bg); color: var(--info-text); border: 1px solid var(--info-border); }
+#toast.info::before { content: '◆  '; color: var(--info-text); }
+
+/* ─── Inline code ────────────────────────────────────────────────────────── */
+code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  color: var(--text-secondary);
+  background: var(--bg-subtle);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-subtle);
+}
+
+/* ─── Citation excerpt ─────────────────────────────────────────────────── */
+.cite-excerpt {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  padding: 6px 8px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  font-style: italic;
+}
+
+/* ─── Divider between form and results ──────────────────────────────────── */
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+/* ─── Provider unavailable notice ───────────────────────────────────────── */
+.unavailable-notice {
+  display: flex;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-md);
+  margin-top: 16px;
+}
+
+.unavailable-notice svg { flex-shrink: 0; color: #D97706; margin-top: 1px; }
+
+.unavailable-notice h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--warn-text);
+  margin-bottom: 4px;
+}
+
+.unavailable-notice p {
+  font-size: 13px;
+  color: var(--warn-text);
+  opacity: 0.85;
+  line-height: 1.5;
+}
+
+/* ─── Grounded Q&A ─────────────────────────────────────────────────────────── */
+.qa-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.qa-form .form-group:first-child {
+  grid-column: 1 / -1;
+}
+
+.qa-form .form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.qa-form .btn-primary {
+  padding: 10px 20px;
+  font-size: 14px;
+}
+
+.qa-form .btn-secondary {
+  padding: 10px 20px;
+  font-size: 14px;
+}
+
+.qa-helper {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  line-height: 1.45;
+}
+
+/* Answer presentation */
+.qa-result {
+  margin-top: 20px;
+  animation: fadeUp 0.2s ease;
+}
+
+.qa-answer-panel {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  background: var(--bg-surface);
+  margin-bottom: 16px;
+}
+
+.qa-answer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.qa-answer-type {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.qa-answer-type.answered { color: var(--pass-text); }
+.qa-answer-type.abstained { color: var(--review-text); }
+
+.qa-answer-body {
+  font-size: 15px;
+  color: var(--text-primary);
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 12px;
+}
+
+.qa-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.qa-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.qa-meta-item .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-answered { background: var(--pass-text); }
+.dot-abstained { background: #D97706; }
+.dot-false { background: var(--border-strong); }
+
+/* Citations */
+.cite-excerpt {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  padding: 6px 8px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+  font-style: italic;
+}
+
+/* ─── Research Agent ───────────────────────────────────────────────────────── */
+.agent-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.agent-form .form-group:first-child {
+  grid-column: 1 / -1;
+}
+
+.agent-form .form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.agent-form .btn-primary {
+  padding: 10px 20px;
+  font-size: 14px;
+}
+
+.agent-form .btn-secondary {
+  padding: 10px 20px;
+  font-size: 14px;
+}
+
+.agent-helper {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  line-height: 1.45;
+}
+
+/* Agent status */
+.agent-result-panel {
+  margin-top: 20px;
+  animation: fadeUp 0.2s ease;
+}
+
+.agent-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.agent-completed { background: var(--pass-bg);   color: var(--pass-text);   border: 1px solid var(--pass-border); }
+.agent-failed    { background: var(--reject-bg);  color: var(--reject-text); border: 1px solid var(--reject-border); }
+.agent-running   { background: var(--info-bg);    color: var(--info-text);   border: 1px solid var(--info-border); }
+
+.agent-result-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  background: var(--bg-surface);
+  margin-bottom: 16px;
+}
+
+.agent-answer-body {
+  font-size: 15px;
+  color: var(--text-primary);
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 12px;
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .header-inner {
+    padding: 0 16px;
+    height: 60px;
+  }
+
+  .brand-name span { display: none; }
+
+  .nav-inner {
+    padding: 0 12px;
+    gap: 2px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .nav-inner::-webkit-scrollbar { display: none; }
+
+  .nav-tab {
+    padding: 11px 10px 10px;
+  }
+
+  .app-main {
+    padding: 20px 16px 52px;
+  }
+
+  .card { padding: 18px 16px; }
+
+  .form-row,
+  .form-row-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .status-indicator {
+    padding-right: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-right {
+    gap: 8px;
+  }
+
+  .status-indicator {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .app-main {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- ─── Header ───────────────────────────────────────────────────────────── -->
+<header class="app-header" role="banner">
+  <div class="header-inner">
+    <a href="#" class="brand" aria-label="SmartChunk home">
+      <div class="brand-icon" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+          <line x1="12" y1="22.08" x2="12" y2="12"/>
+        </svg>
+      </div>
+      <span class="brand-name">SmartChunk <span>— Document Intelligence</span></span>
+    </a>
+
+    <div class="header-right">
+      <div class="status-indicator" id="backendStatus" aria-live="polite">
+        <span class="status-dot" id="statusDot" aria-hidden="true"></span>
+        <span id="statusText">Checking…</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ─── Navigation ───────────────────────────────────────────────────────── -->
+<nav class="app-nav" role="navigation" aria-label="Main navigation">
+  <div class="nav-inner">
+
+    <button class="nav-tab" onclick="app.switchTab('ingest')" id="tab-btn-ingest" aria-current="page" aria-controls="tab-ingest">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      Ingest
+    </button>
+
+    <button class="nav-tab" onclick="app.switchTab('documents')" id="tab-btn-documents" aria-controls="tab-documents">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <polyline points="10 9 9 9 8 9"/>
+      </svg>
+      Documents
+    </button>
+
+    <button class="nav-tab" onclick="app.switchTab('search')" id="tab-btn-search" aria-controls="tab-search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="8"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      Search
+    </button>
+
+    <button class="nav-tab" onclick="app.switchTab('chat')" id="tab-btn-chat" aria-controls="tab-chat">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      Grounded Q&amp;A
+    </button>
+
+    <button class="nav-tab" onclick="app.switchTab('agent')" id="tab-btn-agent" aria-controls="tab-agent">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+        <line x1="8" y1="21" x2="16" y2="21"/>
+        <line x1="12" y1="17" x2="12" y2="21"/>
+      </svg>
+      Research Agent
+    </button>
+
+    <button class="nav-tab" onclick="app.switchTab('evaluation')" id="tab-btn-evaluation" aria-controls="tab-evaluation">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="18" y1="20" x2="18" y2="10"/>
+        <line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      Evaluation
+    </button>
+
+  </div>
+</nav>
+
+<!-- ─── Main Content ──────────────────────────────────────────────────────── -->
+<main class="app-main" id="main-content">
+
+  <!-- ① Ingest ──────────────────────────────────────────────────────────── -->
+  <section id="tab-ingest" class="active" role="tabpanel" aria-labelledby="tab-btn-ingest">
+
+    <div class="page-title">
+      <h1>Document Ingestion</h1>
+      <p>Upload a PDF, TXT, or Markdown file. The parser extracts sections, chunks text deterministically, and runs a quality gate on every chunk.</p>
+    </div>
+
+    <div class="card">
+      <!-- Upload Zone -->
+      <div class="form-group">
+        <label for="fileInput">File</label>
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()" role="button" tabindex="0" aria-label="Upload document — click or drag a file here">
+          <div class="upload-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <p id="uploadLabel"><strong>Choose a file</strong>, or drag and drop</p>
+          <small>PDF, TXT, Markdown &mdash; maximum 20 MiB</small>
+          <div id="fileSelectedLabel" class="file-selected-label" style="display:none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span id="fileSelectedName"></span>
+          </div>
+        </div>
+        <input type="file" id="fileInput" accept=".pdf,.txt,.md,.markdown" aria-label="Select file to upload">
+      </div>
+
+      <hr class="section-sep">
+
+      <!-- Chunking Options -->
+      <div class="form-row">
+        <div class="form-group">
+          <label for="ingestStrategy">Chunking Strategy</label>
+          <select id="ingestStrategy" onchange="app.updateStrategyHint()">
+            <option value="smart">Smart (structure-aware)</option>
+            <option value="fixed">Fixed-size</option>
+            <option value="structure">Structure-aware</option>
+          </select>
+          <span class="strategy-hint" id="strategyHint">Detects document structure and splits at logical section boundaries with size constraints.</span>
+        </div>
+        <div class="form-group">
+          <label for="ingestChunkSize">Max Words per Chunk</label>
+          <input type="number" id="ingestChunkSize" value="350" min="50" max="4000" aria-describedby="chunkSizeHint">
+          <small id="chunkSizeHint" style="font-size:11px; color:var(--text-tertiary); margin-top:4px; display:block;">Range: 50–4000 words</small>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="ingestDocId">Document ID <span class="label-hint">(optional)</span></label>
+          <input type="text" id="ingestDocId" placeholder="auto-generated from file hash">
+        </div>
+        <div class="form-group">
+          <label for="ingestTitle">Title <span class="label-hint">(optional)</span></label>
+          <input type="text" id="ingestTitle" placeholder="defaults to filename">
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div class="progress indeterminate" id="ingestProgress" role="progressbar" aria-label="Upload in progress">
+        <div class="progress-bar" id="ingestProgressBar"></div>
+      </div>
+      <div class="upload-status" id="uploadStatus" style="display:none;">
+        <span class="btn-spinner"></span>
+        <span id="uploadStatusText">Uploading and processing…</span>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-primary" id="ingestBtn" onclick="app.ingestDocument()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          Upload &amp; Ingest
+        </button>
+      </div>
+
+      <div id="ingestResult"></div>
+    </div>
+
+  </section>
+
+  <!-- ② Documents ───────────────────────────────────────────────────────── -->
+  <section id="tab-documents" role="tabpanel" aria-labelledby="tab-btn-documents">
+
+    <div class="page-title">
+      <h1>Document Library</h1>
+      <p>Documents ingested in this session, with chunk counts and quality-gate outcomes.</p>
+    </div>
+
+    <div class="session-notice" role="note">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span><strong>Session only.</strong> This list reflects documents uploaded during the current browser session. The index is persisted in SQLite, but this view resets on page reload.</span>
+    </div>
+
+    <div class="card">
+      <div id="documentsList"></div>
+    </div>
+
+  </section>
+
+  <!-- ③ Search ──────────────────────────────────────────────────────────── -->
+  <section id="tab-search" role="tabpanel" aria-labelledby="tab-btn-search">
+
+    <div class="page-title">
+      <h1>Hybrid Search</h1>
+      <p>Search indexed research documents. Results are ranked by relevance and include source document, chunk, page/offset provenance, and graph-expansion context.</p>
+    </div>
+
+    <!-- Retrieval status notice (shown when semantic/hybrid unavailable) -->
+    <div id="searchStatusNotice" class="retrieval-status-notice" style="display:none;" role="status" aria-live="polite">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <div>
+        <strong id="searchStatusTitle">Semantic search initializing</strong>
+        <p id="searchStatusDetail" style="margin:2px 0 0;font-size:11px;opacity:0.85;">The embedding model is loading. Keyword search remains available.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <form id="searchForm" class="search-form" onsubmit="event.preventDefault(); app.searchDocuments();">
+        <div class="form-group">
+          <label for="searchQuery">Search Query</label>
+          <input type="text" id="searchQuery" placeholder="Enter search terms…"
+                 onkeydown="if(event.key==='Enter') app.searchDocuments()"
+                 aria-describedby="searchQueryHint">
+          <small id="searchQueryHint" style="font-size:11px; color:var(--text-tertiary); margin-top:4px; display:block;">Press Enter or click Search</small>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="searchMode">Retrieval Mode</label>
+            <select id="searchMode">
+              <option value="hybrid">Hybrid (BM25 + semantic)</option>
+              <option value="keyword">Keyword (BM25/FTS5)</option>
+              <option value="semantic">Semantic (embeddings)</option>
+              <option value="baseline">Baseline (lexical)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="searchTopK">Top K Results</label>
+            <select id="searchTopK">
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="searchAccess">Access Scope <span class="label-hint">(comma-separated labels)</span></label>
+            <input type="text" id="searchAccess" value="public" placeholder="public">
+          </div>
+          <div class="form-group" style="display:flex; align-items:flex-end; padding-bottom:2px;">
+            <label class="checkbox-label">
+              <input type="checkbox" id="searchGraph" checked>
+              Include graph expansion
+            </label>
+          </div>
+        </div>
+
+        <div class="search-controls-hint" id="searchModeHint"></div>
+
+        <div class="form-actions">
+          <button class="btn-primary" id="searchBtn" type="submit">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            Search
+          </button>
+          <button class="btn-secondary" type="button" onclick="app.newSearch()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            New Search
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div id="searchResults"></div>
+
+  </section>
+
+  <!-- ④ Grounded Q&A ────────────────────────────────────────────────────── -->
+  <section id="tab-chat" role="tabpanel" aria-labelledby="tab-btn-chat">
+
+    <div class="page-title">
+      <h1>Grounded Q&amp;A</h1>
+      <p>Ask a question grounded in retrieved evidence. Answers are synthesized from indexed document chunks with source citations.</p>
+    </div>
+
+    <!-- Retrieval status notice (shown when semantic/hybrid unavailable) -->
+    <div id="chatStatusNotice" class="retrieval-status-notice" style="display:none;" role="status" aria-live="polite">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <div>
+        <strong id="chatStatusTitle">Semantic search initializing</strong>
+        <p id="chatStatusDetail" style="margin:2px 0 0;font-size:11px;opacity:0.85;">The embedding model is loading. Keyword mode remains available.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <form id="chatForm" class="qa-form" onsubmit="event.preventDefault(); app.askQuestion();">
+        <div class="form-group">
+          <label for="chatQuestion">Question</label>
+          <textarea id="chatQuestion" rows="3" placeholder="What does the document say about…"
+                    onkeydown="if(event.key==='Enter' && !event.shiftKey) app.askQuestion()"
+                    aria-describedby="chatQueryHint"></textarea>
+          <small id="chatQueryHint" style="font-size:11px; color:var(--text-tertiary); margin-top:4px; display:block;">Press Enter to submit (Shift+Enter for newline)</small>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="chatMode">Retrieval Mode</label>
+            <select id="chatMode">
+              <option value="keyword">Keyword</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="semantic">Semantic</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="chatMaxTokens">Max Context Tokens</label>
+            <input type="number" id="chatMaxTokens" value="1000" min="100" max="8000">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="chatAccess">Access Scope <span class="label-hint">(comma-separated)</span></label>
+          <input type="text" id="chatAccess" value="public" placeholder="public">
+        </div>
+
+        <div class="qa-helper" id="qaModeHint"></div>
+
+        <div class="form-actions">
+          <button class="btn-primary" id="chatBtn" type="submit">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            Ask Question
+          </button>
+          <button class="btn-secondary" type="button" onclick="app.newQuestion()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            New Question
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div id="chatResult"></div>
+
+  </section>
+
+  <!-- ⑤ Research Agent ─────────────────────────────────────────────────── -->
+  <section id="tab-agent" role="tabpanel" aria-labelledby="tab-btn-agent">
+
+    <div class="page-title">
+      <h1>Research Agent</h1>
+      <p>Submit a bounded research task. The agent plans, retrieves, inspects relationships, assesses coverage, and synthesizes — all within configurable limits.</p>
+    </div>
+
+    <div class="card">
+      <form id="agentForm" class="agent-form" onsubmit="event.preventDefault(); app.createAgentTask();">
+        <div class="form-group">
+          <label for="agentQuestion">Research Task</label>
+          <textarea id="agentQuestion" rows="3" placeholder="Summarize the evidence across documents…"
+                    onkeydown="if(event.key==='Enter' && !event.shiftKey) app.createAgentTask()"
+                    aria-describedby="agentTaskHint"></textarea>
+          <small id="agentTaskHint" style="font-size:11px; color:var(--text-tertiary); margin-top:4px; display:block;">Press Enter to submit (Shift+Enter for newline)</small>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="agentMaxSteps">Max Steps</label>
+            <input type="number" id="agentMaxSteps" value="12" min="1" max="50">
+          </div>
+          <div class="form-group">
+            <label for="agentMaxToolCalls">Max Tool Calls</label>
+            <input type="number" id="agentMaxToolCalls" value="8" min="1" max="30">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="agentMaxDuration">Max Duration <span class="label-hint">(seconds)</span></label>
+            <input type="number" id="agentMaxDuration" value="20" min="1" max="120">
+          </div>
+          <div class="form-group">
+            <label for="agentMaxContext">Max Context Tokens</label>
+            <input type="number" id="agentMaxContext" value="1500" min="100" max="8000">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="agentAccess">Access Scope <span class="label-hint">(comma-separated)</span></label>
+          <input type="text" id="agentAccess" value="public" placeholder="public">
+        </div>
+
+        <div class="agent-helper" id="agentModeHint"></div>
+
+        <div class="form-actions">
+          <button class="btn-primary" id="agentBtn" type="submit">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            Start Research Task
+          </button>
+          <button class="btn-secondary" type="button" onclick="app.newAgentTask()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            New Task
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div id="agentResult"></div>
+
+  </section>
+
+  <!-- ⑥ Evaluation ─────────────────────────────────────────────────────── -->
+  <section id="tab-evaluation" role="tabpanel" aria-labelledby="tab-btn-evaluation">
+
+    <div class="page-title">
+      <h1>Retrieval Evaluation</h1>
+      <p>Run labelled retrieval benchmarks. Evaluation requires annotated query cases with relevance labels present in the corpus. Results show Recall@K, MRR@K, and nDCG@K computed against your uploaded documents.</p>
+    </div>
+
+    <!-- Production benchmark status -->
+    <div class="eval-benchmark-notice" role="status" aria-live="polite">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <div>
+        <strong>Approved production corpus not configured.</strong>
+        <p style="margin:2px 0 0;font-size:11px;opacity:0.85;">Evaluation runs against locally indexed documents only. No source manifests, annotations, or approval records have been recorded for production benchmarking.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <form id="evalForm" class="eval-form" onsubmit="event.preventDefault(); app.runEvaluation();">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="evalDatasetId">Dataset ID</label>
+            <input type="text" id="evalDatasetId" value="inline" aria-describedby="evalDatasetHint">
+            <small id="evalDatasetHint" style="font-size:11px; color:var(--text-tertiary); margin-top:4px; display:block;">Identifier recorded with the evaluation run.</small>
+          </div>
+          <div class="form-group">
+            <label for="evalChunkingStrategy">Chunking Strategy</label>
+            <input type="text" id="evalChunkingStrategy" value="smart" aria-describedby="evalStrategyHint">
+            <small id="evalStrategyHint" style="font-size:11px; color:var(--text-tertiary); margin-top:4px; display:block;">Strategy label recorded with the run.</small>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="evalCases">Query Cases <span class="label-hint">(JSON array)</span></label>
+          <textarea id="evalCases" rows="6" style="font-family:var(--font-mono); font-size:12px;" aria-describedby="evalCasesHint">[{"query_id":"q1","query":"example question","source_documents":["paper"],"evidence":[{"document_id":"paper","char_start":0,"char_end":5,"grade":2}],"answerability":"answerable","split":"development"}]</textarea>
+          <small id="evalCasesHint" style="font-size:11px; color:var(--text-tertiary); margin-top:4px; display:block;">Each case needs query_id, query, source_documents, evidence (with document_id, char_start, char_end, grade), answerability, and split.</small>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="evalMode">Retrieval Mode</label>
+            <select id="evalMode">
+              <option value="keyword">Keyword</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="semantic">Semantic</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="evalTopK">Top K</label>
+            <input type="number" id="evalTopK" value="5" min="1" max="100">
+          </div>
+        </div>
+
+        <div class="eval-helper" id="evalModeHint"></div>
+
+        <div class="form-actions">
+          <button class="btn-primary" id="evalBtn" type="submit">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+            Run Evaluation
+          </button>
+          <button class="btn-secondary" type="button" onclick="app.newEvaluation()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            New Evaluation
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div id="evalResult"></div>
+
+  </section>
+
+</main>
+
+<!-- ─── Toast ─────────────────────────────────────────────────────────────── -->
+<div id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+<!-- ─── JavaScript (preserved verbatim + minimal Phase 2 nav fix) ─────────── -->
+<script>
+const API_BASE = ''; // same origin
+
+const app = {
+  documents: [],  // uploaded docs tracked in session
+  semanticAvailable: null, // null = unknown, true/false after status check
+  isSearching: false, // prevents duplicate submissions
+  isAsking: false, // prevents duplicate Q&A submissions
+  isAgentRunning: false, // prevents duplicate agent submissions
+  isEvaluating: false, // prevents duplicate evaluation submissions
+
+  init() {
+    this.checkBackendStatus();
+    setInterval(() => this.checkBackendStatus(), 15000);
+    this.switchTab('ingest');
+    this.setupDragAndDrop();
+    // Allow Enter key on upload zone
+    const zone = document.getElementById('uploadZone');
+    zone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); document.getElementById('fileInput').click(); } });
+  },
+
+  switchTab(tabId) {
+    document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('nav button').forEach(b => { b.classList.remove('active'); b.removeAttribute('aria-current'); });
+    document.getElementById('tab-' + tabId).classList.add('active');
+    const btn = document.getElementById('tab-btn-' + tabId);
+    btn.classList.add('active');
+    btn.setAttribute('aria-current', 'page');
+    if (tabId === 'documents') this.renderDocuments();
+    if (tabId === 'agent') { const el = document.getElementById('agentResult'); if (!el.innerHTML.trim()) this.renderAgent(); }
+    if (tabId === 'evaluation') { const el = document.getElementById('evalResult'); if (!el.innerHTML.trim()) this.renderEvaluation(); }
+    if (tabId === 'search') this._updateSemanticOptions();
+    if (tabId === 'chat') this._updateSemanticOptions();
+  },
+
+  setupDragAndDrop() {
+    const zone = document.getElementById('uploadZone');
+    const input = document.getElementById('fileInput');
+    const fileSelectedLabel = document.getElementById('fileSelectedLabel');
+    const fileSelectedName = document.getElementById('fileSelectedName');
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        input.files = e.dataTransfer.files;
+        this._updateFileSelected(input.files[0], zone, fileSelectedLabel, fileSelectedName);
+      }
+    });
+    input.addEventListener('change', () => {
+      if (input.files[0]) {
+        this._updateFileSelected(input.files[0], zone, fileSelectedLabel, fileSelectedName);
+      }
+    });
+  },
+
+  _updateFileSelected(file, zone, labelEl, nameEl) {
+    zone.classList.add('file-selected');
+    labelEl.style.display = 'flex';
+    nameEl.textContent = file.name;
+    document.getElementById('uploadLabel').innerHTML = '<strong>' + this.escapeHtml(file.name) + '</strong> selected';
+  },
+
+  async checkBackendStatus() {
+    try {
+      const res = await fetch(API_BASE + '/retrieval/status', { cache: 'no-store' });
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      if (res.ok) {
+        const status = await res.json();
+        dot.className = 'status-dot online';
+        const embCount = status.embedding_records ?? 0;
+        text.textContent = `Backend online${embCount ? ' · ' + embCount + ' embeddings' : ''}`;
+        // Track semantic availability to disable the option when not available
+        this.semanticAvailable = status.semantic_available !== false;
+        this._updateSemanticOptions();
+      } else {
+        dot.className = 'status-dot';
+        text.textContent = 'Backend error';
+      }
+    } catch (e) {
+      document.getElementById('statusDot').className = 'status-dot';
+      document.getElementById('statusText').textContent = 'Backend unavailable';
+    }
+  },
+
+  _updateSemanticOptions() {
+    if (this.semanticAvailable === null) return;
+    const showNotice = !this.semanticAvailable;
+    // Search tab notice
+    const sNotice = document.getElementById('searchStatusNotice');
+    const sTitle = document.getElementById('searchStatusTitle');
+    const sDetail = document.getElementById('searchStatusDetail');
+    if (sNotice) {
+      sNotice.style.display = showNotice ? 'flex' : 'none';
+      if (sTitle) sTitle.textContent = showNotice ? 'Semantic search unavailable' : 'Semantic search available';
+      if (sDetail) sDetail.textContent = showNotice ? 'The embedding model is not loaded. Keyword and baseline modes remain available.' : 'All retrieval modes are available.';
+    }
+    // Q&A tab notice
+    const cNotice = document.getElementById('chatStatusNotice');
+    const cTitle = document.getElementById('chatStatusTitle');
+    const cDetail = document.getElementById('chatStatusDetail');
+    if (cNotice) {
+      cNotice.style.display = showNotice ? 'flex' : 'none';
+      if (cTitle) cTitle.textContent = showNotice ? 'Semantic search unavailable' : 'Semantic search available';
+      if (cDetail) cDetail.textContent = showNotice ? 'The embedding model is not loaded. Keyword mode remains available.' : 'All retrieval modes are available.';
+    }
+    ['searchMode', 'chatMode', 'evalMode'].forEach(id => {
+      const sel = document.getElementById(id);
+      if (!sel) return;
+      sel.querySelectorAll('option').forEach(opt => {
+        if (opt.value === 'semantic' || opt.value === 'hybrid') {
+          opt.disabled = !this.semanticAvailable;
+          if (opt.value === 'semantic') opt.text = this.semanticAvailable ? 'Semantic (embeddings)' : 'Semantic (unavailable — no embedding model)';
+          if (opt.value === 'hybrid') opt.text = this.semanticAvailable ? (id === 'searchMode' ? 'Hybrid (BM25 + semantic)' : 'Hybrid') : 'Hybrid (embeddings unavailable)';
+        }
+      });
+      // If current selection is now disabled, fall back to keyword
+      if (sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].disabled) sel.value = 'keyword';
+    });
+  },
+
+  toast(message, type = 'info') {
+    const el = document.getElementById('toast');
+    el.textContent = message;
+    el.className = type === 'error' ? 'show error' : type === 'success' ? 'show success' : 'show info';
+    setTimeout(() => el.classList.remove('show', 'error', 'success', 'info'), 4000);
+  },
+
+  async api(path, opts = {}) {
+    const res = await fetch(API_BASE + path, {
+      headers: { 'Content-Type': 'application/json', ...opts.headers },
+      ...opts,
+    });
+    if (!res.ok) {
+      let detail = '';
+      try { const j = await res.json(); detail = j.detail || j.error || res.statusText; } catch (_) { detail = res.statusText; }
+      throw new Error(`${res.status} ${detail}`);
+    }
+    return res.json();
+  },
+
+  // ---------- 1. Ingestion ----------
+  async ingestDocument() {
+    const file = document.getElementById('fileInput').files[0];
+    if (!file) { this.toast('Please select a file', 'error'); return; }
+    const btn = document.getElementById('ingestBtn');
+    const resultEl = document.getElementById('ingestResult');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-spinner"></span> Uploading…';
+    resultEl.innerHTML = '';
+    document.getElementById('ingestProgress').style.display = 'block';
+    document.getElementById('uploadStatus').style.display = 'flex';
+    document.getElementById('uploadStatusText').textContent = `Uploading ${file.name}…`;
+
+    const form = new FormData();
+    form.append('file', file);
+    form.append('options', JSON.stringify({
+      strategy: document.getElementById('ingestStrategy').value,
+      chunk_size: parseInt(document.getElementById('ingestChunkSize').value) || 350,
+      overlap: 40,
+      access: ['public'],
+      source_uri: null,
+    }));
+    const docId = document.getElementById('ingestDocId').value.trim();
+    const title = document.getElementById('ingestTitle').value.trim();
+    if (docId) form.append('document_id', docId);
+    if (title) form.append('title', title);
+
+    try {
+      document.getElementById('uploadStatusText').textContent = 'Processing and chunking…';
+      const res = await fetch(API_BASE + '/documents/upload', {
+        method: 'POST',
+        body: form,
+      });
+      if (!res.ok) {
+        let detail = '';
+        try { const j = await res.json(); detail = j.detail || res.statusText; } catch (_) { detail = res.statusText; }
+        // Specific error messages for known HTTP codes
+        if (res.status === 409) throw new Error('A document with this ID already exists. Use a different document ID or leave it blank for auto-generation.');
+        if (res.status === 413) throw new Error('File exceeds the 20 MiB size limit. Please use a smaller file.');
+        if (res.status === 415) throw new Error('Unsupported file format. Accepted: PDF, TXT, Markdown (.md, .markdown).');
+        throw new Error(`${res.status} ${detail}`);
+      }
+      const data = await res.json();
+      this.documents.push({ id: data.document_id, title: title || file.name, chunks: data.chunks, sections: data.sections, quality: data.quality, source_sha256: data.source_sha256 });
+      resultEl.innerHTML = this.renderIngestResult(data, title || file.name);
+      this.toast('Document ingested successfully', 'success');
+      document.getElementById('fileInput').value = '';
+      document.getElementById('uploadLabel').innerHTML = '<strong>Choose a file</strong>, or drag and drop';
+      // Reset upload zone file-selected state
+      const zone = document.getElementById('uploadZone');
+      const labelEl = document.getElementById('fileSelectedLabel');
+      const nameEl = document.getElementById('fileSelectedName');
+      zone.classList.remove('file-selected');
+      labelEl.style.display = 'none';
+      nameEl.textContent = '';
+    } catch (e) {
+      resultEl.innerHTML = `<div class="error"><strong>Upload failed:</strong> ${this.escapeHtml(e.message)}</div>`;
+      this.toast('Upload failed', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Upload &amp; Ingest';
+      document.getElementById('ingestProgress').style.display = 'none';
+      document.getElementById('uploadStatus').style.display = 'none';
+      // Reset upload zone file-selected state
+      const zone = document.getElementById('uploadZone');
+      const labelEl = document.getElementById('fileSelectedLabel');
+      const nameEl = document.getElementById('fileSelectedName');
+      zone.classList.remove('file-selected');
+      labelEl.style.display = 'none';
+      nameEl.textContent = '';
+      document.getElementById('uploadLabel').innerHTML = '<strong>Choose a file</strong>, or drag and drop';
+    }
+  },
+
+  qualitySummary(report) {
+    if (!report || !report.chunks) return '<span style="color:var(--text-tertiary); font-size:12px;">No report</span>';
+    const counts = { PASS: 0, REPAIR: 0, REVIEW: 0, REJECT: 0 };
+    for (const c of report.chunks) counts[c.status] = (counts[c.status] || 0) + 1;
+    return `<span class="quality-badges">`
+      + (counts.PASS ? `<span class="quality-badge quality-badge-pass"><span class="qb-count">${counts.PASS}</span> Pass</span>` : '')
+      + (counts.REPAIR ? `<span class="quality-badge quality-badge-repair"><span class="qb-count">${counts.REPAIR}</span> Repair</span>` : '')
+      + (counts.REVIEW ? `<span class="quality-badge quality-badge-review"><span class="qb-count">${counts.REVIEW}</span> Review</span>` : '')
+      + (counts.REJECT ? `<span class="quality-badge quality-badge-reject"><span class="qb-count">${counts.REJECT}</span> Reject</span>` : '')
+      + '</span>';
+  },
+
+  renderIngestResult(data, displayTitle) {
+    const sha = data.source_sha256 || 'n/a';
+    const shaShort = sha.length > 16 ? sha.slice(0, 16) + '…' : sha;
+    const q = data.quality;
+    let diagnosticsHtml = '';
+    if (q && q.chunks) {
+      const allDiags = [];
+      for (const chunk of q.chunks) {
+        if (chunk.diagnostics && chunk.diagnostics.length) {
+          for (const d of chunk.diagnostics) {
+            allDiags.push({ ...d, chunk_id: chunk.chunk_id || d.chunk_id });
+          }
+        }
+      }
+      if (allDiags.length) {
+        diagnosticsHtml = `
+          <button class="diagnostics-toggle" onclick="this.classList.toggle('open'); this.nextElementSibling.classList.toggle('show');">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            ${allDiags.length} diagnostic${allDiags.length !== 1 ? 's' : ''}
+          </button>
+          <div class="diagnostics-list">
+            ${allDiags.map(d => `
+              <div class="diagnostic-item">
+                <span class="diagnostic-severity sev-${(d.severity || 'info').toLowerCase()}">${this.escapeHtml(d.severity || 'INFO')}</span>
+                <div class="diagnostic-body">
+                  <div class="diagnostic-code">${this.escapeHtml(d.code || '')}</div>
+                  <div class="diagnostic-explanation">${this.escapeHtml(d.explanation || '')}</div>
+                  ${d.suggested_action ? `<div class="diagnostic-action">${this.escapeHtml(d.suggested_action)}</div>` : ''}
+                  <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-tertiary); margin-top:2px;">chunk: ${this.escapeHtml(d.chunk_id || '')}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>`;
+      }
+    }
+    return `
+      <div class="ingest-result-panel">
+        <div class="ingest-result-header">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <h4>Document uploaded</h4>
+        </div>
+        <div class="ingest-result-body">
+          <div class="ingest-stat-grid">
+            <div class="ingest-stat"><div class="stat-value">${data.chunks}</div><div class="stat-label">Chunks</div></div>
+            <div class="ingest-stat"><div class="stat-value">${data.sections}</div><div class="stat-label">Sections</div></div>
+          </div>
+          <div class="ingest-detail-row">
+            <span class="ingest-detail-key">Document ID</span>
+            <span class="ingest-detail-value">${this.escapeHtml(data.document_id)}</span>
+          </div>
+          <div class="ingest-detail-row">
+            <span class="ingest-detail-key">Title</span>
+            <span class="ingest-detail-value" style="font-family:var(--font-sans); font-size:13px;">${this.escapeHtml(displayTitle || data.document_id)}</span>
+          </div>
+          <div class="ingest-detail-row">
+            <span class="ingest-detail-key">Source SHA-256</span>
+            <span class="ingest-detail-value" title="${this.escapeHtml(sha)}">${this.escapeHtml(shaShort)}</span>
+          </div>
+        </div>
+        <div class="ingest-quality-summary">
+          <span class="quality-label">Quality gate</span>
+          <span class="quality-badges">${this.qualitySummary(data.quality)}</span>
+          <div style="font-size:12px; color:var(--text-tertiary); margin-top:6px;">Upload succeeded. Quality status above reflects chunk-level review outcomes&mdash;upload success does not imply all chunks passed quality review.</div>
+        </div>
+        ${diagnosticsHtml}
+      </div>`;
+  },
+
+  updateStrategyHint() {
+    const strategy = document.getElementById('ingestStrategy').value;
+    const hints = {
+      smart: 'Detects document structure and splits at logical section boundaries with size constraints.',
+      fixed: 'Splits text into fixed-size chunks by word count with configurable overlap.',
+      structure: 'Preserves document structure (headings, sections) as chunk boundaries.'
+    };
+    document.getElementById('strategyHint').textContent = hints[strategy] || '';
+  },
+
+  // ---------- 2. Documents ----------
+  renderDocuments() {
+    const el = document.getElementById('documentsList');
+    if (!this.documents.length) {
+      el.innerHTML = `
+        <div class="empty">
+          <div class="empty-icon" aria-hidden="true">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+          </div>
+          <h3>No documents in this session</h3>
+          <p>Upload a PDF, TXT, or Markdown document on the Ingest tab to add it to the library. This list is session-only and resets when you reload the page.</p>
+        </div>`;
+      return;
+    }
+    let html = '';
+    for (const d of this.documents) {
+      const shaFull = d.source_sha256 || '';
+      const shaShort = shaFull.length > 16 ? shaFull.slice(0, 16) + '…' : (shaFull || '—');
+      const displayTitle = d.title || d.id;
+      html += `
+        <div class="doc-card">
+          <div class="doc-card-header">
+            <div class="doc-card-main">
+              <div class="doc-card-title">${this.escapeHtml(displayTitle)}</div>
+              <div class="doc-card-id" title="Document ID: ${this.escapeHtml(d.id)}">${this.escapeHtml(d.id)}</div>
+            </div>
+            <span class="doc-card-sha" title="Source SHA-256: ${this.escapeHtml(shaFull)}">${this.escapeHtml(shaShort)}</span>
+          </div>
+          <div class="doc-card-stats">
+            <span class="doc-card-stat">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+              </svg>
+              <strong>${d.chunks}</strong> chunks
+            </span>
+            <span class="doc-card-stat">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+              </svg>
+              <strong>${d.sections || 0}</strong> sections
+            </span>
+          </div>
+          <div class="doc-card-status">
+            ${this.qualitySummary(d.quality)}
+          </div>
+          <div class="doc-card-actions">
+            <a href="${API_BASE}/documents/${encodeURIComponent(d.id)}/export.jsonl" class="btn-secondary btn-sm" download>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              Export JSONL
+            </a>
+          </div>
+        </div>`;
+    }
+    el.innerHTML = html;
+  },
+
+  // ---------- 3. Search ----------
+  async searchDocuments() {
+    if (this.isSearching) return;
+    const query = document.getElementById('searchQuery').value.trim();
+    if (!query) { this.toast('Please enter a search query', 'error'); return; }
+    const resEl = document.getElementById('searchResults');
+    const searchBtn = document.getElementById('searchBtn');
+    this.isSearching = true;
+    resEl.innerHTML = `
+      <div class="search-loading">
+        <span class="btn-spinner"></span>
+        <p style="color:var(--text-secondary); font-size:13px;">Searching…</p>
+      </div>`;
+    if (searchBtn) { searchBtn.disabled = true; searchBtn.innerHTML = '<span class="btn-spinner"></span> Searching…'; }
+
+    const access = document.getElementById('searchAccess').value.split(',').map(s => s.trim()).filter(Boolean);
+    const body = {
+      query,
+      access,
+      top_k: parseInt(document.getElementById('searchTopK').value) || 5,
+      graph: document.getElementById('searchGraph').checked,
+      max_hops: 1,
+      max_nodes: 10,
+      max_added_tokens: 500,
+      mode: document.getElementById('searchMode').value,
+      rrf_k: 60,
+    };
+
+    try {
+      const data = await this.api('/search/detailed', { method: 'POST', body: JSON.stringify(body) });
+      this.renderSearchResults(data);
+    } catch (e) {
+      resEl.innerHTML = `<div class="error"><strong>Search failed:</strong> ${this.escapeHtml(e.message)}</div>`;
+      this.toast('Search failed', 'error');
+    } finally {
+      this.isSearching = false;
+      if (searchBtn) { searchBtn.disabled = false; searchBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Search'; }
+    }
+  },
+
+  newSearch() {
+    const queryInput = document.getElementById('searchQuery');
+    const resEl = document.getElementById('searchResults');
+    queryInput.value = '';
+    queryInput.focus();
+    resEl.innerHTML = '';
+    this.toast('New search started', 'info');
+  },
+
+  renderSearchResults(data) {
+    const el = document.getElementById('searchResults');
+    const results = data.results || [];
+    const meta = data.retrieval || {};
+    if (!results.length) {
+      el.innerHTML = `
+        <div class="search-empty">
+          <div class="empty-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </div>
+          <h3>No results</h3>
+          <p>Try a different query, mode, or check that documents are indexed.</p>
+        </div>`;
+      return;
+    }
+    let html = `<div class="search-summary">
+      <strong>${results.length} result${results.length !== 1 ? 's' : ''}</strong>
+      <span class="badge badge-mode">${meta.mode || 'unknown'}</span>
+      ${meta.semantic_available ? '<span class="badge badge-neutral">semantic ✓</span>' : '<span class="badge badge-neutral">semantic ✗</span>'}
+      ${meta.fts5_available ? '<span class="badge badge-neutral">FTS5 ✓</span>' : ''}
+      ${meta.latency_ms != null ? `<span style="margin-left:auto; font-family:var(--font-mono);">${Math.round(meta.latency_ms)}ms</span>` : ''}
+    </div>`;
+    html += '<div class="search-results-list">';
+    results.forEach((r, i) => {
+      const rank = i + 1;
+      const prov = r.source_provenance || {};
+      const pageInfo = prov.page ? `p.${prov.page}` : '';
+      const offsetInfo = (prov.char_start != null && prov.char_end != null) ? `chars ${prov.char_start}–${prov.char_end}` : '';
+      const graphClass = r.graph_added ? ' graph-expanded' : '';
+      const score = r.score != null ? (r.score || 0).toFixed(4) : '—';
+      const hasProvenance = pageInfo || offsetInfo;
+      const hasGraph = r.graph_added || (r.relationship_path && r.relationship_path.length);
+      html += `
+        <div class="search-result${graphClass}" id="search-result-${rank}">
+          <div class="search-result-header">
+            <span class="search-result-rank">${rank}</span>
+            <div class="search-result-identity">
+              <div class="search-result-doc">${this.escapeHtml(r.document_id)}</div>
+              <div class="search-result-chunk">${this.escapeHtml(r.chunk_id)}</div>
+            </div>
+            <span class="search-result-score" title="Relevance score">${score}</span>
+          </div>
+          <div class="search-result-text">${this.escapeHtml(r.text)}</div>
+          <div class="search-result-meta">
+            ${pageInfo ? `<span class="result-meta-item">${this.escapeHtml(pageInfo)}<span class="sep">·</span></span>` : ''}
+            ${offsetInfo ? `<span class="result-meta-item" style="font-family:var(--font-mono); font-size:10px;">${this.escapeHtml(offsetInfo)}<span class="sep">·</span></span>` : ''}
+            ${r.graph_added ? '<span class="badge badge-graph">graph context</span>' : ''}
+            ${r.relationship_path && r.relationship_path.length ? `<span class="result-meta-item" style="color:var(--text-tertiary);">path: ${r.relationship_path.length} hop${r.relationship_path.length !== 1 ? 's' : ''}</span>` : ''}
+            ${(hasProvenance || hasGraph || r.score != null) ? `<button class="evidence-toggle" onclick="app.toggleEvidence(${rank})" aria-expanded="false" aria-controls="evidence-${rank}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg> Inspect evidence</button>` : ''}
+          </div>
+          <div id="evidence-${rank}" class="evidence-detail" style="display:none;">
+            <div class="evidence-detail-header">
+              <span class="evidence-detail-title">Evidence Detail</span>
+              <button class="evidence-toggle" onclick="app.toggleEvidence(${rank})" aria-expanded="false" aria-controls="evidence-${rank}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"/></svg> Collapse</button>
+            </div>
+            <div class="evidence-detail-body">${this.escapeHtml(r.text)}</div>
+            <div class="evidence-detail-meta">
+              <div class="evidence-detail-meta-row">
+                <div class="evidence-detail-meta-item">
+                  <span class="evidence-detail-meta-key">Document</span>
+                  <span class="evidence-detail-meta-value" title="${this.escapeHtml(r.document_id)}">${this.escapeHtml(r.document_id)}</span>
+                </div>
+                <div class="evidence-detail-meta-item">
+                  <span class="evidence-detail-meta-key">Chunk</span>
+                  <span class="evidence-detail-meta-value" title="${this.escapeHtml(r.chunk_id)}">${this.escapeHtml(r.chunk_id)}</span>
+                </div>
+                <div class="evidence-detail-meta-item">
+                  <span class="evidence-detail-meta-key">Score</span>
+                  <span class="evidence-detail-meta-value">${score}</span>
+                </div>
+                <div class="evidence-detail-meta-item">
+                  <span class="evidence-detail-meta-key">Mode</span>
+                  <span class="evidence-detail-meta-value">${this.escapeHtml(meta.mode || '—')}</span>
+                </div>
+                ${pageInfo ? `<div class="evidence-detail-meta-item"><span class="evidence-detail-meta-key">Page</span><span class="evidence-detail-meta-value">${this.escapeHtml(pageInfo)}</span></div>` : ''}
+                ${offsetInfo ? `<div class="evidence-detail-meta-item"><span class="evidence-detail-meta-key">Offsets</span><span class="evidence-detail-meta-value">${this.escapeHtml(offsetInfo)}</span></div>` : ''}
+                ${r.graph_added ? `<div class="evidence-detail-meta-item"><span class="evidence-detail-meta-key">Graph</span><span class="evidence-detail-meta-value">expanded</span></div>` : ''}
+                ${r.relationship_path && r.relationship_path.length ? `<div class="evidence-detail-meta-item"><span class="evidence-detail-meta-key">Path</span><span class="evidence-detail-meta-value">${this.escapeHtml(r.relationship_path.join(' → '))}</span></div>` : ''}
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  },
+
+  toggleEvidence(rank) {
+    const panel = document.getElementById(`evidence-${rank}`);
+    const btns = document.querySelectorAll(`#search-result-${rank} .evidence-toggle`);
+    const isOpen = panel.style.display !== 'none';
+    if (isOpen) {
+      panel.style.display = 'none';
+      btns.forEach(b => {
+        b.classList.remove('expanded', 'open');
+        b.setAttribute('aria-expanded', 'false');
+      });
+    } else {
+      panel.style.display = 'block';
+      btns.forEach(b => {
+        b.classList.add('expanded', 'open');
+        b.setAttribute('aria-expanded', 'true');
+      });
+    }
+  },
+
+  // ---------- 4. Grounded Q&A ----------
+  async askQuestion() {
+    if (this.isAsking) return;
+    const question = document.getElementById('chatQuestion').value.trim();
+    if (!question) { this.toast('Please enter a question', 'error'); return; }
+    const resEl = document.getElementById('chatResult');
+    const btn = document.getElementById('chatBtn');
+    this.isAsking = true;
+    resEl.innerHTML = `
+      <div class="search-loading">
+        <span class="btn-spinner"></span>
+        <p style="color:var(--text-secondary); font-size:13px;">Retrieving evidence and generating answer…</p>
+      </div>`;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-spinner"></span> Thinking…';
+
+    const access = document.getElementById('chatAccess').value.split(',').map(s => s.trim()).filter(Boolean);
+    const body = {
+      question,
+      access,
+      top_k: 5,
+      graph: false,
+      max_hops: 1,
+      max_nodes: 10,
+      max_added_tokens: 500,
+      mode: document.getElementById('chatMode').value,
+      rrf_k: 60,
+      max_context_tokens: parseInt(document.getElementById('chatMaxTokens').value) || 1000,
+    };
+
+    try {
+      const res = await fetch(API_BASE + '/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.status === 503) {
+        resEl.innerHTML = this._providerUnavailableHtml('Grounded Q&amp;A requires a Gemini API key.', 'Set GEMINI_API_KEY and GEMINI_MODEL environment variables, then restart the server.');
+        return;
+      }
+      if (!res.ok) {
+        let detail = ''; try { const j = await res.json(); detail = j.detail || res.statusText; } catch (_) { detail = res.statusText; }
+        throw new Error(`${res.status} ${detail}`);
+      }
+      const data = await res.json();
+      this.renderChatResult(data);
+    } catch (e) {
+      resEl.innerHTML = `<div class="error"><strong>Q&amp;A failed:</strong> ${this.escapeHtml(e.message)}</div>`;
+      this.toast('Q&amp;A failed', 'error');
+    } finally {
+      this.isAsking = false;
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Ask Question';
+    }
+  },
+
+  newQuestion() {
+    const queryInput = document.getElementById('chatQuestion');
+    const resEl = document.getElementById('chatResult');
+    queryInput.value = '';
+    queryInput.focus();
+    resEl.innerHTML = '';
+    this.toast('New question started', 'info');
+  },
+
+  _providerUnavailableHtml(title, detail) {
+    return `<div class="unavailable-notice">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12" y2="21"/>
+      </svg>
+      <div>
+        <h4>AI features unavailable</h4>
+        <p>${title} ${detail}</p>
+      </div>
+    </div>`;
+  },
+
+  renderChatResult(data) {
+    const el = document.getElementById('chatResult');
+    const isAbstained = data.abstained === true;
+    const isConflicting = data.conflicting_evidence === true;
+    const hasUncertainty = data.uncertainty != null;
+
+    let typeBadge = `<span class="qa-answer-type answered">Answered</span>`;
+    let metaDots = '';
+    if (isAbstained) {
+      typeBadge = `<span class="qa-answer-type abstained">Abstained</span>`;
+      metaDots = `<span class="qa-meta-item"><span class="dot dot-abstained" aria-hidden="true"></span>Abstained — no supported answer</span>`;
+    } else if (isConflicting) {
+      metaDots = `<span class="qa-meta-item"><span class="dot dot-answered" aria-hidden="true"></span>Conflicting evidence</span>`;
+    } else {
+      metaDots = `<span class="qa-meta-item"><span class="dot dot-answered" aria-hidden="true"></span>Supported by retrieved evidence</span>`;
+    }
+    if (hasUncertainty) {
+      metaDots += `<span class="qa-meta-item">Uncertainty: ${this.escapeHtml(String(data.uncertainty))}</span>`;
+    }
+
+    let html = `
+      <div class="qa-result">
+        <div class="qa-answer-panel">
+          <div class="qa-answer-header">
+            ${typeBadge}
+          </div>
+          <div class="qa-answer-body">${this.escapeHtml(data.answer || '—')}</div>
+          <div class="qa-meta">
+            ${metaDots}
+          </div>
+        </div>`;
+
+    if (data.citations && data.citations.length) {
+      html += `<div class="citations-section">
+        <div class="citations-label">Sources (${data.citations.length})</div>`;
+      data.citations.forEach((c, i) => {
+        const pageInfo = c.page != null ? `p.${c.page}` : '';
+        const offsetInfo = (c.char_start != null && c.char_end != null) ? `chars ${c.char_start}–${c.char_end}` : '';
+        const provenance = [pageInfo, offsetInfo].filter(Boolean).join(' · ');
+        const excerpt = c.text ? `<div class="cite-excerpt">${this.escapeHtml(c.text.slice(0, 200))}${c.text.length > 200 ? '…' : ''}</div>` : '';
+        html += `<div class="citation">
+          <span class="cite-number">${i + 1}</span>
+          <div class="cite-body">
+            <div class="cite-doc">${this.escapeHtml(String(c.document_id || 'unknown'))}${provenance ? ' · ' + provenance : ''}</div>
+            <div class="cite-chunk">${this.escapeHtml(String(c.chunk_id || ''))}</div>
+            ${excerpt}
+          </div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+
+    if (data.retrieval && Object.keys(data.retrieval).length) {
+      const meta = data.retrieval;
+      html += `<div class="retrieval-detail">mode: ${this.escapeHtml(meta.mode || '?')} · top_k: ${meta.top_k ?? '?'} · latency: ${meta.latency_ms != null ? Math.round(meta.latency_ms) + 'ms' : '?'}</div>`;
+    }
+
+    html += '</div>';
+    el.innerHTML = html;
+  },
+
+  // ---------- 5. Research Agent ----------
+  async createAgentTask() {
+    if (this.isAgentRunning) return;
+    const question = document.getElementById('agentQuestion').value.trim();
+    if (!question) { this.toast('Please enter a task question', 'error'); return; }
+    const resEl = document.getElementById('agentResult');
+    const btn = document.getElementById('agentBtn');
+    this.isAgentRunning = true;
+    resEl.innerHTML = `
+      <div class="search-loading">
+        <span class="btn-spinner"></span>
+        <p style="color:var(--text-secondary); font-size:13px;">Running research task… this may take up to 20 seconds.</p>
+      </div>`;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-spinner"></span> Running…';
+
+    const access = document.getElementById('agentAccess').value.split(',').map(s => s.trim()).filter(Boolean);
+    const body = {
+      question,
+      access,
+      top_k: 5,
+      mode: 'hybrid',
+      rrf_k: 60,
+      max_context_tokens: parseInt(document.getElementById('agentMaxContext').value) || 1500,
+      limits: {
+        max_steps: parseInt(document.getElementById('agentMaxSteps').value) || 12,
+        max_tool_calls: parseInt(document.getElementById('agentMaxToolCalls').value) || 8,
+        max_subquestions: 3,
+        max_retrieval_retries: 1,
+        max_duration_seconds: parseInt(document.getElementById('agentMaxDuration').value) || 20,
+        max_context_tokens: parseInt(document.getElementById('agentMaxContext').value) || 1500,
+      },
+    };
+
+    try {
+      const res = await fetch(API_BASE + '/agent/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.status === 503) {
+        resEl.innerHTML = this._providerUnavailableHtml('Research Agent requires a Gemini API key.', 'Set GEMINI_API_KEY and GEMINI_MODEL environment variables, then restart the server.');
+        return;
+      }
+      if (!res.ok) {
+        let detail = ''; try { const j = await res.json(); detail = j.detail || res.statusText; } catch (_) { detail = res.statusText; }
+        throw new Error(`${res.status} ${detail}`);
+      }
+      const data = await res.json();
+      this.renderAgentTask(data);
+    } catch (e) {
+      resEl.innerHTML = `<div class="error"><strong>Task failed:</strong> ${this.escapeHtml(e.message)}</div>`;
+      this.toast('Research task failed', 'error');
+    } finally {
+      this.isAgentRunning = false;
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start Research Task';
+    }
+  },
+
+  newAgentTask() {
+    const queryInput = document.getElementById('agentQuestion');
+    const resEl = document.getElementById('agentResult');
+    queryInput.value = '';
+    queryInput.focus();
+    resEl.innerHTML = '';
+    this.toast('New task started', 'info');
+  },
+
+  renderAgentTask(data) {
+    const el = document.getElementById('agentResult');
+    const cls = 'agent-' + data.status;
+    let html = `<div class="agent-result-panel">
+      <div class="agent-status-row">
+        <span class="agent-status-badge ${cls}">${this.escapeHtml(data.status)}</span>
+      </div>`;
+    if (data.error) {
+      html += `<div class="error"><strong>Error:</strong> ${this.escapeHtml(data.error)}</div>`;
+    }
+    if (data.result) {
+      const r = data.result;
+      const isAbstained = r.abstained === true;
+      const isConflicting = r.conflicting_evidence === true;
+
+      let typeBadge = `<span class="qa-answer-type answered">Answered</span>`;
+      let metaDots = '';
+      if (isAbstained) {
+        typeBadge = `<span class="qa-answer-type abstained">Abstained</span>`;
+        metaDots = `<span class="qa-meta-item"><span class="dot dot-abstained" aria-hidden="true"></span>Abstained — no supported answer</span>`;
+      } else if (isConflicting) {
+        metaDots = `<span class="qa-meta-item"><span class="dot dot-answered" aria-hidden="true"></span>Conflicting evidence</span>`;
+      } else {
+        metaDots = `<span class="qa-meta-item"><span class="dot dot-answered" aria-hidden="true"></span>Supported by retrieved evidence</span>`;
+      }
+      if (r.uncertainty != null) {
+        metaDots += `<span class="qa-meta-item">Uncertainty: ${this.escapeHtml(String(r.uncertainty))}</span>`;
+      }
+
+      html += `
+        <div class="agent-result-card">
+          <div class="qa-answer-header" style="margin-bottom:12px;">
+            <span class="qa-answer-type ${isAbstained ? 'abstained' : 'answered'}">Research Result</span>
+          </div>
+          <div class="qa-answer-body">${this.escapeHtml(r.answer || '—')}</div>
+          <div class="qa-meta">
+            ${metaDots}
+          </div>
+          ${r.citations && r.citations.length ? `
+            <div class="citations-section" style="margin-top:16px;">
+              <div class="citations-label">Sources (${r.citations.length})</div>
+              ${r.citations.map((c, i) => {
+                const pageInfo = c.page != null ? `p.${c.page}` : '';
+                const offsetInfo = (c.char_start != null && c.char_end != null) ? `chars ${c.char_start}–${c.char_end}` : '';
+                const provenance = [pageInfo, offsetInfo].filter(Boolean).join(' · ');
+                const excerpt = c.text ? `<div class="cite-excerpt">${this.escapeHtml(c.text.slice(0, 200))}${c.text.length > 200 ? '…' : ''}</div>` : '';
+                return `<div class="citation">
+                  <span class="cite-number">${i+1}</span>
+                  <div class="cite-body">
+                    <div class="cite-doc">${this.escapeHtml(String(c.document_id||''))}${provenance ? ' · ' + provenance : ''}</div>
+                    <div class="cite-chunk">${this.escapeHtml(String(c.chunk_id||''))}</div>
+                    ${excerpt}
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>` : ''}
+        </div>`;
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  },
+
+  renderAgent() {
+    const el = document.getElementById('agentResult');
+    el.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </div>
+        <h3>No active task</h3>
+        <p>Submit a research task above to see results here.</p>
+      </div>`;
+  },
+
+  // ---------- 6. Evaluation ----------
+  async runEvaluation() {
+    if (this.isEvaluating) return;
+    let cases;
+    try { cases = JSON.parse(document.getElementById('evalCases').value); }
+    catch (e) { this.toast('Invalid JSON in query cases', 'error'); return; }
+    const resEl = document.getElementById('evalResult');
+    const btn = document.getElementById('evalBtn');
+    this.isEvaluating = true;
+    resEl.innerHTML = '<div class="search-loading"><span class="btn-spinner"></span><p style="color:var(--text-secondary); font-size:13px;">Running evaluation…</p></div>';
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-spinner"></span> Running…';
+
+    const body = {
+      dataset_id: document.getElementById('evalDatasetId').value || 'inline',
+      dataset_version: 'unspecified',
+      cases,
+      mode: document.getElementById('evalMode').value,
+      access: ['public'],
+      top_k: parseInt(document.getElementById('evalTopK').value) || 5,
+      graph: false,
+      chunking_strategy: document.getElementById('evalChunkingStrategy').value || 'smart',
+      warmup_trials: 1,
+      measured_trials: 3,
+    };
+
+    try {
+      const data = await this.api('/evaluations', { method: 'POST', body: JSON.stringify(body) });
+      this.renderEvaluationResult(data);
+    } catch (e) {
+      resEl.innerHTML = `<div class="error"><strong>Evaluation failed:</strong> ${this.escapeHtml(e.message)}</div>`;
+      this.toast('Evaluation failed', 'error');
+    } finally {
+      this.isEvaluating = false;
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Run Evaluation';
+    }
+  },
+
+  newEvaluation() {
+    const textarea = document.getElementById('evalCases');
+    const resEl = document.getElementById('evalResult');
+    textarea.value = '[{"query_id":"q1","query":"example question","source_documents":["paper"],"evidence":[{"document_id":"paper","char_start":0,"char_end":5,"grade":2}],"answerability":"answerable","split":"development"}]';
+    textarea.focus();
+    resEl.innerHTML = '';
+    this.toast('New evaluation started', 'info');
+  },
+
+  renderEvaluationResult(data) {
+    const el = document.getElementById('evalResult');
+    const m = data.metrics || {};
+    const missing = data.missing_labels || [];
+    const invalid = data.invalid_mappings || [];
+    const failed = data.failed_queries || [];
+    const recall = m['Recall@5'];
+    const mrr    = m['MRR@5'];
+    const ndcg   = m['nDCG@5'];
+    const fmt = v => (v != null && !isNaN(v)) ? Number(v).toFixed(3) : '—';
+
+    let html = `<div class="eval-result-panel">
+      <div class="eval-result-header">
+        <span class="eval-result-title">Evaluation Results</span>
+        <span class="eval-result-status ${data.status || 'completed'}">${this.escapeHtml(String(data.status || 'completed'))}</span>
+      </div>
+      <div class="eval-metrics">
+        <div class="eval-metric">
+          <div class="value">${m.scored_queries ?? 0}</div>
+          <div class="metric-label">scored queries</div>
+          <div class="eval-metric-description">Queries with labels that were scored</div>
+        </div>
+        <div class="eval-metric">
+          <div class="value">${fmt(recall)}</div>
+          <div class="metric-label">Recall@5</div>
+          <div class="eval-metric-description">Fraction of relevant docs retrieved in top 5</div>
+        </div>
+        <div class="eval-metric">
+          <div class="value">${fmt(mrr)}</div>
+          <div class="metric-label">MRR@5</div>
+          <div class="eval-metric-description">Mean reciprocal rank of first relevant doc</div>
+        </div>
+        <div class="eval-metric">
+          <div class="value">${fmt(ndcg)}</div>
+          <div class="metric-label">nDCG@5</div>
+          <div class="eval-metric-description">Normalized discounted cumulative gain</div>
+        </div>
+        ${m.latency_ms_mean != null ? `<div class="eval-metric"><div class="value">${Math.round(m.latency_ms_mean)}ms</div><div class="metric-label">avg latency</div><div class="eval-metric-description">Mean retrieval latency per query</div></div>` : ''}
+      </div>`;
+
+    if (missing.length) {
+      html += `<div class="eval-missing"><strong>Missing labels:</strong> ${this.escapeHtml(missing.join(', '))} — excluded from scoring</div>`;
+    }
+    if (invalid.length) {
+      html += `<div class="eval-invalid"><strong>Invalid mappings:</strong> ${this.escapeHtml(invalid.join(', '))}</div>`;
+    }
+    if (failed.length) {
+      html += `<div class="eval-failed"><strong>Failed queries:</strong> ${this.escapeHtml(failed.join(', '))}</div>`;
+    }
+
+    html += `<div class="eval-meta">Run ID: ${this.escapeHtml(data.run_id)} &middot; Dataset: ${this.escapeHtml(data.dataset_id || 'inline')} &middot; Mode: ${this.escapeHtml(data.mode || 'keyword')}</div></div>`;
+    el.innerHTML = html;
+  },
+
+  renderEvaluation() {
+    const el = document.getElementById('evalResult');
+    el.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+        </div>
+        <h3>No evaluation run yet</h3>
+        <p>Configure and run an evaluation above.</p>
+      </div>`;
+  },
+
+  // ---------- Helpers ----------
+  escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  },
+};
+
+document.addEventListener('DOMContentLoaded', () => app.init());
+</script>
+
+</body>
+</html>
